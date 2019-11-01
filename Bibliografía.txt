@@ -1,0 +1,20 @@
+Fuentes consultadas:
+[arduino] https://www.arduino.cc/reference/en/language
+https://www.luisllamas.es/arduino-i2c/
+https://www.luisllamas.es/usar-arduino-con-los-imu-de-9dof-mpu-9150-y-mpu-9250/
+https://programarfacil.com/podcast/nodemcu-tutorial-paso-a-paso/
+https://programarfacil.com/esp8266/como-programar-nodemcu-ide-arduino/
+https://www.instructables.com/id/The-74HC164-Shift-Register-and-your-Arduino/
+https://howtomechatronics.com/tutorials/arduino/arduino-dc-motor-control-tutorial-l298n-pwm-h-bridge/
+
+Datasheets:
+https://www.esi.uclm.es/www/isanchez/apuntes/ci/74164.pdf
+https://www.sparkfun.com/datasheets/Robotics/L298_H_Bridge.pdf
+http://ee-classes.usc.edu/ee459/library/datasheets/LM7805.pdf
+https://www.esploradores.com/datasheet-nodemcu/
+http://www.invensense.com/wp-content/uploads/2015/02/PS-MPU-9250A-01-v1.1.pdf
+
+Librerías:
+[library 1] https://arduino.esp8266.com/stable/package_esp8266com_index.json
+[library esp8266] https://github.com/esp8266/Arduino
+[library mpu] https://github.com/sparkfun/SparkFun_MPU-9250-DMP_Arduino_Library
