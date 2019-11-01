@@ -38,9 +38,9 @@ WiFiClient serverClients[MAX_SRV_CLIENTS];
  * Intervalo de tiempo que se espera para comprobar que haya un nuevo mensaje
  */
 unsigned long previousMillis = 0, temp = 0;
-unsigned long previosMillisLEDs=0;
+unsigned long previousMillisDir=0;
 const long interval = 100;
-const long intevalDirectionals=500;
+const long intervalDirectionals=500;
 
 /**
  * Variables para manejar las luces y polaridad de motores con el registro de corrimiento.
@@ -525,19 +525,30 @@ String implementar(String llave, String valor){
        * SI SE DESEAN manejar otras salidas del registro de corrimiento
        */
       case 'l':
-        Serial.println("Luces izquierda");
+        Serial.println("Direccionales para la izquierda");
         //# AGREGAR CÓDIGO PARA ENCENDER O APAGAR DIRECCIONAL IZQUIERDA
         if (valor == "1"){
-          dirI = true;
-          result = "";
+          if (currentMillis-previousMillisDir>=intervalDirectionals){
+            dirI=!dirI;
+            previousMillisDir = currentMillis;
+            data=data^B00000101; //Se invierten únicamente los bits que manejan las luces izquierdas.
+            shiftOut(ab,clk,LSBFIRST,data);
+            }
+          result = "Se han activado las direccionales izquierdas.";
         }
         else if (valor == "0"){
+          if (dirI==false){
+            data=data^B00000101;
+            shiftOut(ab,clk,LSBFIRST,data);
+            }
+          else{
+            shiftOut(ab,clk,LSBFIRST,data);}
           dirI = false;
-          result = "";
+          result = "Se han desactivado las direccionales izquierdas.";
         }
         break;
       case 'r':
-        Serial.println("Luces derechas");
+        Serial.println("Direccionales para la derecha");
         // AGREGAR PARA CÓDIGO PARA ENCENDER O APAGAR DIRECCIONAL DERECHA
         if (valor == "1"){
           dirD = true;
