@@ -537,7 +537,7 @@ String implementar(String llave, String valor){
           result = "Se han activado las direccionales izquierdas.";
         }
         else if (valor == "0"){
-          if (dirI==false){
+          if (dirI==true){
             data=data^B00000101;
             shiftOut(ab,clk,LSBFIRST,data);
             }
