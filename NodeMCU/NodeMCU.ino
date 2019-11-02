@@ -40,7 +40,7 @@ WiFiClient serverClients[MAX_SRV_CLIENTS];
 unsigned long previousMillis = 0, temp = 0;
 unsigned long previousMillisDir=0;
 const long interval = 100;
-const long intervalDirectionals=500;
+const long intervalDirectionals=1000;
 
 /**
  * Variables para manejar las luces y polaridad de motores con el registro de corrimiento.
@@ -63,8 +63,7 @@ const long intervalDirectionals=500;
  */
 #define ab 14 //GPIO14 = D5
 #define clk 12 //GPIO12 = D6
-byte data = B00000011;
-
+byte data = B00001111;
 
 //pin del fotosensor
 #define ldr A0
@@ -96,7 +95,10 @@ int tiempoDeGiro = 0;
 double mayorAcc = 0;
 //Indican si luces traseras están en modo direccional.
 boolean dirD = false;
+boolean DirD_ON=false;
 boolean dirI = false;
+boolean DirI_ON=false;
+
 
 //Indica si el carro está en buen estado
 boolean buenEstado = true;
@@ -112,7 +114,7 @@ boolean buenEstado = true;
 *comando[6]=LED trasero izq
 *comando[7]=LED trasero der
 */
-byte stops=B00000011;
+byte stops=B00001111;
 byte forward=B10101111;
 byte backwards=B01011111;
 byte right=B01101111;
@@ -257,7 +259,7 @@ void setup() {
 void loop() {
   // En esta función pueden comparar la lectura del acelerómetro para saber cual es su aceleración mayor
   updateAccelInfo();
-  setDireccionales();
+  if (dirI==true || dirD==true){setDireccionales();} 
   unsigned long currentMillis = millis();
   uint8_t i;
   //check if there are any new clients
@@ -385,8 +387,12 @@ String implementar(String llave, String valor){
     Serial.println(valor);
     int valorEntero= valor.toInt();
     if (valorEntero == 0){
-      if (f_light==true){
+      if (f_light==true && b_light==false){
         data=stops^B00000011;}
+      else if (b_light==true && f_light==true){
+        data=stops^B00001100;}
+      else if (f_light==true && f_light==true){
+        data=stops^B00001111;}
       else{data=stops;}
       shiftOut(ab,clk,LSBFIRST,data); //Control del shift register para indicar la detención de los motores: byte stop=0b00000011
       result="Motor frenado";
@@ -504,6 +510,8 @@ String implementar(String llave, String valor){
         if (valor == "1"){
           if (b_light==false){
             b_light=true;
+            if (dirI==false){DirI_ON=true;}
+            if (dirD==false){DirD_ON=true;}
             data=data^B00001100;
             shiftOut(ab,clk,LSBFIRST,data);}
           else{
@@ -513,6 +521,8 @@ String implementar(String llave, String valor){
         else if (valor == "0"){
           if (b_light==true){
             b_light=false;
+            if (dirI==false){DirI_ON=false;}
+            if (dirD==false){DirD_ON=false;}
             data=data^B00001100;
             shiftOut(ab,clk,LSBFIRST,data);}
           else{
@@ -528,42 +538,63 @@ String implementar(String llave, String valor){
         Serial.println("Direccionales para la izquierda");
         //# AGREGAR CÓDIGO PARA ENCENDER O APAGAR DIRECCIONAL IZQUIERDA
         if (valor == "1"){
-          if (currentMillis-previousMillisDir>=intervalDirectionals){
-            dirI=!dirI;
-            previousMillisDir = currentMillis;
-            data=data^B00000101; //Se invierten únicamente los bits que manejan las luces izquierdas.
-            shiftOut(ab,clk,LSBFIRST,data);
-            }
+          dirD=false;
+          dirI=true;
           result = "Se han activado las direccionales izquierdas.";
         }
         else if (valor == "0"){
-          if (dirI==true){
-            data=data^B00000101;
-            shiftOut(ab,clk,LSBFIRST,data);
+          dirI = false;
+          if (b_light==true){
+            if (DirI_ON==false){
+              DirI_ON=true;
+              data=data^B00000100;
+              shiftOut(ab,clk,LSBFIRST,data);}
             }
           else{
-            shiftOut(ab,clk,LSBFIRST,data);}
-          dirI = false;
-          result = "Se han desactivado las direccionales izquierdas.";
-        }
+            if (b_light==false){
+              if (DirI_ON==true){
+                DirI_ON=false;
+                data=data^B00000100;
+                shiftOut(ab,clk,LSBFIRST,data);
+                }}}
+                result = "Se han desactivado las direccionales izquierdas.";}
+          
         break;
       case 'r':
         Serial.println("Direccionales para la derecha");
         // AGREGAR PARA CÓDIGO PARA ENCENDER O APAGAR DIRECCIONAL DERECHA
         if (valor == "1"){
+          dirI=false;
           dirD = true;
-          result = "";
+          result = "Se han activado las direccionales derechas.";
         }
         else if (valor == "0"){
           dirD = false;
-          result = "";
-        }
+          if (b_light==true){
+            if (DirD_ON==false){
+              DirD_ON=true;
+              data=data^B00001000;
+              shiftOut(ab,clk,LSBFIRST,data);}
+            else{shiftOut(ab,clk,LSBFIRST,data);}
+            }
+          else{
+            if (b_light==false){
+              if (DirD_ON==true){
+                DirD_ON=false;
+                data=data^B00001000;
+                shiftOut(ab,clk,LSBFIRST,data);
+                }
+              else{shiftOut(ab,clk,LSBFIRST,data);}
+                }}
+                result = "Se han desactivado las direccionales derechas.";}
+          
+        
         break;
       default:
         Serial.println("Ninguna de las anteriores");
-        result = "no hay cambios;";
-        break;
-    }
+        result = "No hay cambios;";
+        break;}
+    
   }
   else if (llave == "TurnTime"){
     //AGREGAR CODIGO PARA CALCULAR TIEMPO DE GIRO
@@ -602,10 +633,26 @@ String implementar(String llave, String valor){
 
 //-------------------------------------------------------------------------------------------------------------------------------------------------------
 void setDireccionales(){
+  
   //AGREGAR CODIGO QUE ENCIENDE Y APAGA LUCES TRASERAS DEPENDIENDO DEL VALOR DE LAS GLOBALES QUE LES CORRESPONDEN
-  }
-
-
+  if (dirI==true){
+    unsigned long currentTime=millis();
+    if (currentTime-previousMillisDir>=intervalDirectionals){
+        DirI_ON=!DirI_ON;
+        previousMillisDir = currentTime;
+        data=data^B00000100; //Se invierten únicamente el bit que maneja la luz trasera izquierda.
+        shiftOut(ab,clk,LSBFIRST,data);
+              }
+        }
+  else if (dirD==true){
+    unsigned long currentTime=millis();
+    if (currentTime-previousMillisDir>=intervalDirectionals){
+        DirD_ON=!DirD_ON;
+        previousMillisDir = currentTime;
+        data=data^B00001000; //Se invierte únicamente el bit que maneja la luz trasera derecha.
+        shiftOut(ab,clk,LSBFIRST,data);
+    }}}
+ 
 //AGREGAR CODIGO DE LOS DISTINTOS COMANDOS
 /**
 recordar que puede usar myIMU para conseguir los valores de los sensores.
