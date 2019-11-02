@@ -387,14 +387,11 @@ String implementar(String llave, String valor){
     Serial.println(valor);
     int valorEntero= valor.toInt();
     if (valorEntero == 0){
-      if (f_light==true && b_light==false){
-        data=stops^B00000011;}
-      else if (b_light==true && f_light==true){
-        data=stops^B00001100;}
-      else if (f_light==true && f_light==true){
+      if (f_light==true){
         data=stops^B00001111;}
-      else{data=stops;}
-      shiftOut(ab,clk,LSBFIRST,data); //Control del shift register para indicar la detención de los motores: byte stop=0b00000011
+      else{data=stops^B00001100;}
+      shiftOut(ab,clk,LSBFIRST,data);//Control del shift register para indicar la detención de los motores: byte stop=0b00001111
+           
       result="Motor frenado";
     }
     else if (valorEntero>=500 && valorEntero<=1023){
