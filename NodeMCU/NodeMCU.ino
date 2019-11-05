@@ -669,7 +669,8 @@ String getSense(){
   return result;
 }
 String getYaw(){
-  String result = "";
+  Orient=myIMU.yaw;
+  String result = String Orient;
   return result;
 }
 String getPitch(){
