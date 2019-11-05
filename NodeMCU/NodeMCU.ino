@@ -99,6 +99,14 @@ boolean DirD_ON=false;
 boolean dirI = false;
 boolean DirI_ON=false;
 
+//Indica que el cronometro en el giro ha iniciado
+bool turns=false;
+unsigned long inicio=0,fin=0; 
+unsigned long currentTurntime;
+
+//Orientacion en el giro
+float Orient;
+float currentOrient;
 
 //Indica si el carro está en buen estado
 boolean buenEstado = true;
@@ -259,7 +267,8 @@ void setup() {
 void loop() {
   // En esta función pueden comparar la lectura del acelerómetro para saber cual es su aceleración mayor
   updateAccelInfo();
-  if (dirI==true || dirD==true){setDireccionales();} 
+  if (dirI==true || dirD==true){setDireccionales();} //Se llama a la funcion que genera el parapadeo de las direccionales
+  if (turns==true){setTurn();}
   unsigned long currentMillis = millis();
   uint8_t i;
   //check if there are any new clients
@@ -390,6 +399,8 @@ String implementar(String llave, String valor){
       if (f_light==true){
         data=stops^B00001111;}
       else{data=stops^B00001100;}
+      b_light=true;
+      turns=false;
       shiftOut(ab,clk,LSBFIRST,data);//Control del shift register para indicar la detención de los motores: byte stop=0b00001111
            
       result="Motor frenado";
@@ -598,8 +609,9 @@ String implementar(String llave, String valor){
     //pueden utilizar millis para calcular tiempo de giro
     switch (valor.toInt()){
       case 1:
-      {
-        result = "Circulo a la derecha;";
+      { turns=true;
+        Orient=myIMU.yaw;
+        result="Circulo a la derecha"+String(Orient);
         break;
       }
       case -1:
@@ -627,7 +639,19 @@ String implementar(String llave, String valor){
 }
 
 
-
+void setTurn(){
+  unsigned long currentTurntime=millis();
+  currentOrient=myIMU.yaw;
+  data=right;
+  analogWrite(EnB,1023);
+  analogWrite(EnA,1023);
+  shiftOut(ab,clk,LSBFIRST,data);
+  if (Orient+5<=currentOrient<=Orient+40){
+    turns=false;
+    data=stops;
+    shiftOut(ab,clk,LSBFIRST,data);
+    }
+  }
 //-------------------------------------------------------------------------------------------------------------------------------------------------------
 void setDireccionales(){
   
@@ -666,7 +690,8 @@ String getSense(){
   return result;
 }
 String getYaw(){
-  String result = "";
+  Orient=myIMU.yaw;
+  String result = String(Orient);
   return result;
 }
 String getPitch(){
