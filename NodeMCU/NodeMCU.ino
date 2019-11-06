@@ -66,7 +66,7 @@ const long intervalDirectionals=1000;
 byte data = B00001111;
 
 //pin del fotosensor
-#define ldr A0
+#define LDRPin A0
 
 /**
  Pines para manejo del pwm del motor
@@ -100,7 +100,7 @@ boolean dirI = false;
 boolean DirI_ON=false;
 
 //Indica que el cronometro en el giro ha iniciado
-bool turns=false;
+bool turnR=false,turnL=false;
 unsigned long inicio=0,fin=0,tiempogiro=0; 
 unsigned long currentTurntime;
 
@@ -108,6 +108,12 @@ unsigned long currentTurntime;
 float Orient;
 float currentOrient;
 
+float Pitch,Roll; //Valores de elevación-inclinación y alabeo, respectivamente
+//Bandera para movimiento especial: cuadrado
+boolean movEspecial=false,direct=false;
+const long intervaloDirecto=3000;
+const long intervaloGiro=886;
+int contEspecial=0;
 //Indica si el carro está en buen estado
 boolean buenEstado = true;
 
@@ -229,7 +235,7 @@ void setup() {
   pinMode(EnB,OUTPUT);
   pinMode(clk,OUTPUT);
   pinMode(ab,OUTPUT);
-  pinMode(ldr,INPUT);
+  pinMode(LDRPin,INPUT);
 
   // ip estática para el servidor
   IPAddress ip(192,168,99,200);
@@ -265,8 +271,18 @@ void setup() {
 void loop() {
   // En esta función pueden comparar la lectura del acelerómetro para saber cual es su aceleración mayor
   updateAccelInfo();
-  if (dirI==true || dirD==true){setDireccionales();} //Se llama a la funcion que genera el parapadeo de las direccionales
-  if (turns==true){setTurn();}
+  if (dirI==true || dirD==true){setDireccionales();} //Se llama a la funcion que genera el parpadeo de las direccionales
+  if (turnR==true || turnL==true){setTurn();}
+  if (movEspecial==true){
+    if (contEspecial==4){
+      data=stops;
+      shiftOut(ab,clk,LSBFIRST,data);
+      movEspecial=false;
+      direct=false;
+      contEspecial=0;}
+    if (direct==true){setSpecial1();}
+    else if (direct==false && movEspecial==true){setSpecial2();}
+    }
   unsigned long currentMillis = millis();
   uint8_t i;
   //check if there are any new clients
@@ -348,9 +364,7 @@ void procesar(String input, String * output){
     * Si el comando no recibe sobrecargas, chequea si es alguno de los comandos que no la necesitan
     * a output se le asigna lo que retornen las funciones llamadas, puesto que las mismas indican si hubo un error o no
     */
-    else if(comando == "time"){
-      *output = getTurnTime();       
-    }
+    
     else if(comando == "saved"){
       *output = getSaved();       
     }
@@ -400,7 +414,7 @@ String implementar(String llave, String valor){
         data=stops^B00001111;}
       else{data=stops^B00001100;}
       b_light=true;
-      turns=false;
+      turnR=false;turnL=false;
       shiftOut(ab,clk,LSBFIRST,data);//Control del shift register para indicar la detención de los motores: byte stop=0b00001111
            
       result="Motor frenado";
@@ -609,7 +623,8 @@ String implementar(String llave, String valor){
     //pueden utilizar millis para calcular tiempo de giro
     switch (valor.toInt()){
       case 1:
-      { turns=true;
+      { turnL=false;
+        turnR=true;
         Orient=myIMU.yaw;
         inicio=millis();
         result="Circulo a la derecha. Orientacion: "+String(Orient);
@@ -617,6 +632,11 @@ String implementar(String llave, String valor){
       }
       case -1:
       {
+        turnL=true;
+        turnR=false;
+        Orient=myIMU.yaw;
+        inicio=millis();
+        result="Circulo a la derecha. Orientacion: "+String(Orient);
         result = "Circulo a la izquierda;";
         break;
       }
@@ -643,17 +663,32 @@ String implementar(String llave, String valor){
 void setTurn(){
   unsigned long currentTurntime=millis();
   currentOrient=myIMU.yaw;
-  data=right;
-  analogWrite(EnB,650);
-  analogWrite(EnA,650);
-  shiftOut(ab,clk,LSBFIRST,data);
-  if ((currentOrient>(Orient+3))&&(currentOrient<(Orient+10))){
-    fin=currentTurntime;
-    turns=false;
-    data=stops;
+  if (turnR==true){
+    data=right;
+    analogWrite(EnB,800);
+    analogWrite(EnA,0);
     shiftOut(ab,clk,LSBFIRST,data);
-    tiempogiro=fin-inicio;
+    if ((currentOrient>(Orient+3))&&(currentOrient<(Orient+10))){
+      fin=currentTurntime;
+      turnR=false;
+      data=stops;
+      shiftOut(ab,clk,LSBFIRST,data);
+      tiempogiro=fin-inicio;
+    }}
+   if (turnL==true){
+    data=left;
+    analogWrite(EnB,0);
+    analogWrite(EnA,800);
+    shiftOut(ab,clk,LSBFIRST,data);
+    if ((currentOrient<(Orient-3))&&(currentOrient>(Orient-10))){
+      fin=currentTurntime;
+      turnL=false;
+      data=stops;
+      shiftOut(ab,clk,LSBFIRST,data);
+      tiempogiro=fin-inicio;
     }
+  }
+  
   }
 //-------------------------------------------------------------------------------------------------------------------------------------------------------
 void setDireccionales(){
@@ -676,7 +711,39 @@ void setDireccionales(){
         data=data^B00001000; //Se invierte únicamente el bit que maneja la luz trasera derecha.
         shiftOut(ab,clk,LSBFIRST,data);
     }}}
- 
+void setSpecial1(){
+  unsigned long currentTime=millis();
+  if (currentTime-inicio<intervaloDirecto){
+    data=forward;
+    analogWrite(EnA,800);
+    analogWrite(EnB,800);
+    shiftOut(ab,clk,LSBFIRST,data);
+    }
+  else{
+    direct=false;
+    inicio=currentTime;
+    data=stops;
+    shiftOut(ab,clk,LSBFIRST,data);
+    delay(100);
+    }
+  }
+void setSpecial2(){
+  unsigned long currentTime=millis();
+  if (currentTime-inicio<intervaloGiro){
+    data=right;
+    analogWrite(EnA,0);
+    analogWrite(EnB,800);
+    shiftOut(ab,clk,LSBFIRST,data);
+    }
+  else{
+    direct=true;
+    inicio=currentTime;
+    data=stops;
+    shiftOut(ab,clk,LSBFIRST,data);
+    delay(100);
+    contEspecial++;
+    }
+  }
 //AGREGAR CODIGO DE LOS DISTINTOS COMANDOS
 /**
 recordar que puede usar myIMU para conseguir los valores de los sensores.
@@ -684,16 +751,15 @@ myIMU.az = aceleración en x
 myIMU.roll = valor de roll
 etc. pueden ver donde se configuran los valores en updateAccelInfo()
 */
-String getTurnTime(){
-  String result = "Tiempo de giro: "+String(tiempogiro*pow(10,-3));
-  return result;
-}
+
 String getSaved(){
-  String result = "";
+  String result = "Tiempo de giro: "+String(tiempogiro*pow(10,-3))+" segundos";
   return result;
 }
 String getSense(){
-  String result = "";
+  int V = analogRead(LDRPin);            
+  int ilum=map(V,0,1024,0,100);  //Se obtiene el valor del divisor de tension en un rango de 0 a 100
+  String result = "Nivel de iluminacion: "+String(ilum);
   return result;
 }
 String getYaw(){
@@ -702,11 +768,16 @@ String getYaw(){
   return result;
 }
 String getPitch(){
-  String result = "";
+  Pitch=myIMU.pitch;
+  String result = String(Pitch);
   return result;
 }
 String getRoll(){
-  String result = "";
+  Roll=myIMU.roll;
+  String riesgo;
+  if (157<=Roll<=180){riesgo="No hay";}
+  else{riesgo="Hay";}
+  String result ="Nivel de alabeo: "+String(Roll)+". Rango aceptado sin riesgo volteo: 155<=x<=180 y -179.9<=x<=-155 "+riesgo+" riesgo de volteo.";
   return result;
  }
 String infinite(){
@@ -718,6 +789,9 @@ String north(){
   return result;
 } 
 String especial(){
+  movEspecial=true;
+  direct=true;
+  inicio=millis();
   String result = "";
   return result;
 }
