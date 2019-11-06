@@ -101,7 +101,7 @@ boolean DirI_ON=false;
 
 //Indica que el cronometro en el giro ha iniciado
 bool turns=false;
-unsigned long inicio=0,fin=0; 
+unsigned long inicio=0,fin=0,tiempogiro=0; 
 unsigned long currentTurntime;
 
 //Orientacion en el giro
@@ -131,8 +131,6 @@ byte left=B10011111;
 bool f_light=false;
 bool b_light=false;
 
-//Bandera para saber si el carro está en movimiento o no. Sirve para controlar las luces, ya sea en movimiento o en estado estático.
-boolean movement=false;
 void accelSetup(){
   Wire.begin();
   while(!Serial){};
@@ -304,13 +302,12 @@ void loop() {
           Serial.println(mensaje);
           // Escribimos la respuesta al cliente.
           serverClients[i].println(respuesta);
-        }  
         serverClients[i].stop();
       }
     }
   }
 
-}
+}}
 
 
 /*
@@ -351,6 +348,9 @@ void procesar(String input, String * output){
     * Si el comando no recibe sobrecargas, chequea si es alguno de los comandos que no la necesitan
     * a output se le asigna lo que retornen las funciones llamadas, puesto que las mismas indican si hubo un error o no
     */
+    else if(comando == "time"){
+      *output = getTurnTime();       
+    }
     else if(comando == "saved"){
       *output = getSaved();       
     }
@@ -611,7 +611,8 @@ String implementar(String llave, String valor){
       case 1:
       { turns=true;
         Orient=myIMU.yaw;
-        result="Circulo a la derecha"+String(Orient);
+        inicio=millis();
+        result="Circulo a la derecha. Orientacion: "+String(Orient);
         break;
       }
       case -1:
@@ -643,13 +644,15 @@ void setTurn(){
   unsigned long currentTurntime=millis();
   currentOrient=myIMU.yaw;
   data=right;
-  analogWrite(EnB,1023);
-  analogWrite(EnA,1023);
+  analogWrite(EnB,650);
+  analogWrite(EnA,650);
   shiftOut(ab,clk,LSBFIRST,data);
-  if (Orient+5<=currentOrient<=Orient+40){
+  if ((currentOrient>(Orient+3))&&(currentOrient<(Orient+10))){
+    fin=currentTurntime;
     turns=false;
     data=stops;
     shiftOut(ab,clk,LSBFIRST,data);
+    tiempogiro=fin-inicio;
     }
   }
 //-------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -681,6 +684,10 @@ myIMU.az = aceleración en x
 myIMU.roll = valor de roll
 etc. pueden ver donde se configuran los valores en updateAccelInfo()
 */
+String getTurnTime(){
+  String result = "Tiempo de giro: "+String(tiempogiro*pow(10,-3));
+  return result;
+}
 String getSaved(){
   String result = "";
   return result;
