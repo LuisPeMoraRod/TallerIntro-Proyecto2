@@ -109,11 +109,20 @@ float Orient;
 float currentOrient;
 
 float Pitch,Roll; //Valores de elevación-inclinación y alabeo, respectivamente
+
 //Bandera para movimiento especial: cuadrado
 boolean movEspecial=false,direct=false;
 const long intervaloDirecto=3000;
 const long intervaloGiro=886;
 int contEspecial=0;
+
+//Bandera para movimiento que busca el norte
+boolean movNorte=false;
+const long intervaloDirectoN=1500;
+const long intervaloGiroN=380;
+boolean back=false;
+boolean gira=false;
+
 //Indica si el carro está en buen estado
 boolean buenEstado = true;
 
@@ -282,6 +291,11 @@ void loop() {
       contEspecial=0;}
     if (direct==true){setSpecial1();}
     else if (direct==false && movEspecial==true){setSpecial2();}
+    }
+  if (movNorte==true){
+    if (gira==true){setNorte3();}
+    else if (direct==true){setNorte1();}
+    else if (back==true){setNorte2();}
     }
   unsigned long currentMillis = millis();
   uint8_t i;
@@ -462,8 +476,8 @@ String implementar(String llave, String valor){
           data=right^B00001111;}
         else{data=right;}
         
-        analogWrite(EnB,1023);
-        analogWrite(EnA,1023);
+        analogWrite(EnB,800);
+        analogWrite(EnA,0);
         shiftOut(ab,clk,LSBFIRST,data);
         result="Girando derecha;";
         
@@ -476,8 +490,8 @@ String implementar(String llave, String valor){
         else if (f_light==true && b_light==true){
           data=left^B00001111;}
         else{data=left;}
-        analogWrite(EnA,1023);
-        analogWrite(EnB,1023);
+        analogWrite(EnA,800);
+        analogWrite(EnB,0);
         shiftOut(ab,clk,LSBFIRST,data);
         result="Girando izquierda;";
         break;
@@ -744,6 +758,69 @@ void setSpecial2(){
     contEspecial++;
     }
   }
+
+void setNorte1(){
+  Orient=myIMU.yaw;
+  unsigned long currentTime=millis();
+  if ((0<Orient)&& (Orient<35)){
+    direct=false;
+    back=false;
+    gira=false;
+    movNorte=false;
+    data=stops;
+    shiftOut(ab,clk,LSBFIRST,data);}
+  else if (currentTime-inicio<intervaloDirectoN){
+    data=forward;
+    analogWrite(EnA,800);
+    analogWrite(EnB,800);
+    shiftOut(ab,clk,LSBFIRST,data);
+    }
+  else{
+    gira=true;
+    inicio=currentTime;}
+  }
+void setNorte2(){
+  Orient=myIMU.yaw;
+  unsigned long currentTime=millis();
+  if ((0<Orient)&& (Orient<35)){
+    direct=false;
+    back=false;
+    gira=false;
+    movNorte=false;
+    data=stops;
+    shiftOut(ab,clk,LSBFIRST,data);}
+  else if (currentTime-inicio<intervaloDirectoN){
+    data=backwards;
+    analogWrite(EnA,650);
+    analogWrite(EnB,650);
+    shiftOut(ab,clk,LSBFIRST,data);
+    }
+  else{
+    gira=true;
+    inicio=currentTime;}
+  }
+void setNorte3(){
+  Orient=myIMU.yaw;
+  unsigned long currentTime=millis();
+  if ((0<Orient)&& (Orient<35)){
+    direct=false;
+    back=false;
+    gira=false;
+    movNorte=false;
+    data=stops;
+    shiftOut(ab,clk,LSBFIRST,data);}
+  else if (currentTime-inicio<intervaloGiroN){
+    data=right;
+    analogWrite(EnA,0);
+    analogWrite(EnB,800);
+    shiftOut(ab,clk,LSBFIRST,data);
+    }
+  else{
+    gira=false;
+    direct=!direct;
+    back=!back;
+    inicio=currentTime;}
+  }
 //AGREGAR CODIGO DE LOS DISTINTOS COMANDOS
 /**
 recordar que puede usar myIMU para conseguir los valores de los sensores.
@@ -775,9 +852,10 @@ String getPitch(){
 String getRoll(){
   Roll=myIMU.roll;
   String riesgo;
-  if (157<=Roll<=180){riesgo="No hay";}
+  if ((157<Roll)&&(Roll<180)){riesgo="No hay";}
+  else if ((-157>Roll)&&(Roll>-179.9)){riesgo="No hay";}
   else{riesgo="Hay";}
-  String result ="Nivel de alabeo: "+String(Roll)+". Rango aceptado sin riesgo volteo: 155<=x<=180 y -179.9<=x<=-155 "+riesgo+" riesgo de volteo.";
+  String result ="Nivel de alabeo: "+String(Roll)+". Rango aceptado sin riesgo volteo: 157<=x<=180 y -179.9<=x<=-157 "+riesgo+" riesgo de volteo.";
   return result;
  }
 String infinite(){
@@ -785,14 +863,16 @@ String infinite(){
   return result;
 }
 String north(){
-  String result = "";
+  movNorte=true;direct=true;
+  inicio=millis();
+  String result = "Buscando el Norte.";
   return result;
 } 
 String especial(){
   movEspecial=true;
   direct=true;
   inicio=millis();
-  String result = "";
+  String result = "Movimiento especial: cuadrado";
   return result;
 }
 String diagnostic(){
