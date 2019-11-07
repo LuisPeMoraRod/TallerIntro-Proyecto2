@@ -29,7 +29,7 @@
  * Este servidor no funciona correctamente en las redes del TEC,
  * se recomienda crear un hotspot con el celular
  */
-const char* ssid = "Tec5.1";
+const char* ssid = "Tec5_EXT";
 const char* password = "ApartamentosTec";
 // servidor con el puerto y variable con la maxima cantidad de clientes
 WiFiServer server(PORT);
@@ -116,6 +116,15 @@ const long intervaloDirecto=3000;
 const long intervaloGiro=886;
 int contEspecial=0;
 
+//Bandera para movimiento en infinito
+boolean movInf=false;
+boolean InfI=false, InfD=false, direct2=false;
+const long intervaloGiroInf1=2300;
+const long intervaloGiroInf2=3500;
+const long intervaloDirInf1=1500;
+const long intervaloDirInf2=2700;
+int contadorInf=0; 
+
 //Bandera para movimiento que busca el norte
 boolean movNorte=false;
 const long intervaloDirectoN=1500;
@@ -123,8 +132,12 @@ const long intervaloGiroN=380;
 boolean back=false;
 boolean gira=false;
 
-//Indica si el carro está en buen estado
-boolean buenEstado = true;
+//valor de la aceleracion maxima
+float aceleracion=0.0;
+
+//Banderas para el diagnostico
+boolean diagnostico = false,buenestado=false;
+boolean avanza=false, retrocede=false, girader=false, giraizq=false,luces=false;
 
 /**Variables de bytes de control de movimiento y luces: byte comando = 0bxxxxxxxx
 *Descripción de byte:
@@ -226,6 +239,7 @@ void updateAccelInfo(){
   // Pueden utilizar un celular para calibrar el valor. El 0 es el norte.
   myIMU.yaw  += 3;
   myIMU.roll *= RAD_TO_DEG;
+  
 }
 
 
@@ -247,8 +261,8 @@ void setup() {
   pinMode(LDRPin,INPUT);
 
   // ip estática para el servidor
-  IPAddress ip(192,168,99,200);
-  IPAddress gateway(192,168,99,1);
+  IPAddress ip(192,168,99,160);
+  IPAddress gateway(192,168,99,1);;//(192,168,99,1);
   IPAddress subnet(255,255,255,0);
 
   WiFi.config(ip, gateway, subnet);
@@ -280,6 +294,13 @@ void setup() {
 void loop() {
   // En esta función pueden comparar la lectura del acelerómetro para saber cual es su aceleración mayor
   updateAccelInfo();
+  float acelx=myIMU.ax;
+  float acely=myIMU.ay;
+  double acel=sqrt(pow(acelx,2)+pow(acely,2));
+  if (acel>aceleracion){
+    aceleracion=acel;}
+  if (diagnostico==true){setDiag();
+    }
   if (dirI==true || dirD==true){setDireccionales();} //Se llama a la funcion que genera el parpadeo de las direccionales
   if (turnR==true || turnL==true){setTurn();}
   if (movEspecial==true){
@@ -297,6 +318,17 @@ void loop() {
     else if (direct==true){setNorte1();}
     else if (back==true){setNorte2();}
     }
+  if (movInf==true){
+    if (contadorInf==4){
+      data=stops;
+      shiftOut(ab,clk,LSBFIRST,data);
+      movInf=false;
+      direct=false;InfI=false;InfD=false;
+      contadorInf=0;
+      }
+     else{setInf();}
+    }
+    
   unsigned long currentMillis = millis();
   uint8_t i;
   //check if there are any new clients
@@ -401,8 +433,8 @@ void procesar(String input, String * output){
       *output = north();        
     }
     else if(comando == "Diag"){
-      diagnostic();
-      *output = "diagnostico";        
+      
+      *output = diagnostic();        
     }
     else if(comando == "Especial"){
       *output = especial();         
@@ -476,7 +508,7 @@ String implementar(String llave, String valor){
           data=right^B00001111;}
         else{data=right;}
         
-        analogWrite(EnB,800);
+        analogWrite(EnB,600);
         analogWrite(EnA,0);
         shiftOut(ab,clk,LSBFIRST,data);
         result="Girando derecha;";
@@ -490,7 +522,7 @@ String implementar(String llave, String valor){
         else if (f_light==true && b_light==true){
           data=left^B00001111;}
         else{data=left;}
-        analogWrite(EnA,800);
+        analogWrite(EnA,600);
         analogWrite(EnB,0);
         shiftOut(ab,clk,LSBFIRST,data);
         result="Girando izquierda;";
@@ -821,6 +853,188 @@ void setNorte3(){
     back=!back;
     inicio=currentTime;}
   }
+
+void setInf(){
+  unsigned long currentTime=millis();
+  if (InfD==true){
+    if (currentTime-inicio<intervaloGiroInf1){
+      data=forward;
+      analogWrite(EnA,500);
+      analogWrite(EnB,1023);
+      shiftOut(ab,clk,LSBFIRST,data);
+      }
+     else{
+      InfD=false;
+      InfI=false;
+      direct2=false;
+      direct=true;
+      inicio=currentTime;
+      contadorInf++;
+      delay(50);
+      }
+    }
+  else if (InfI==true){
+    if (currentTime-inicio<intervaloGiroInf2){
+      data=forward;
+      analogWrite(EnA,1023);
+      analogWrite(EnB,500);
+      shiftOut(ab,clk,LSBFIRST,data);
+      }
+     else{
+      InfD=false;
+      InfI=false;
+      direct=false;
+      direct2=true;
+      inicio=currentTime;
+      contadorInf++;
+      delay(50);
+      }
+    }
+  else if (direct==true){
+    if (currentTime-inicio<intervaloDirInf1){
+      data=forward;
+      analogWrite(EnA,800);
+      analogWrite(EnB,800);
+      shiftOut(ab,clk,LSBFIRST,data);
+      }
+     else{
+      InfD=false;
+      InfI=true;
+      direct=false;
+      inicio=currentTime;
+      contadorInf++;
+      delay(50);
+      }
+    }
+   else if (direct2==true){
+    if (currentTime-inicio<intervaloDirInf2){
+      data=forward;
+      analogWrite(EnA,800);
+      analogWrite(EnB,800);
+      shiftOut(ab,clk,LSBFIRST,data);
+      }
+     else{
+      InfD=false;
+      InfI=false;
+      direct=false;
+      direct2-false;
+      inicio=currentTime;
+      contadorInf++;
+      delay(50);
+      }
+    }
+  }
+
+void setDiag(){
+  unsigned long currentTime=millis();  
+ 
+  Roll=myIMU.roll;
+  Orient=myIMU.yaw;
+  Pitch=myIMU.pitch;
+  if (luces==true){
+    data=B00000000;
+    shiftOut(ab,clk,LSBFIRST,data);
+    delay(1500);
+    data=B00001111;
+    shiftOut(ab,clk,LSBFIRST,data);
+    delay(1500);
+    luces=false;
+    if (Orient==3.0 && Roll==0.0 && Pitch==0.0){
+      diagnostico=false;
+      buenestado=false;
+      } 
+    else{avanza=true;}
+    }
+  if (avanza==true){
+    data=forward;
+    analogWrite(EnA,800);
+    analogWrite(EnB,800);
+    shiftOut(ab,clk,LSBFIRST,data);
+    delay(1500);
+    float acelx=myIMU.ax;
+    float acely=myIMU.ay;
+    double acel=sqrt(pow(acelx,2)+pow(acely,2));
+    if (acel>0.1){
+      avanza=false;
+      retrocede=true;
+      inicio=currentTime;}
+    else if (currentTime-inicio>intervaloDirecto){
+      diagnostico=false;
+      buenestado=false;
+      avanza=false;
+      data=stops;
+      shiftOut(ab,clk,LSBFIRST,data);
+      }
+    }
+   if (retrocede==true){
+    data=backwards;
+    analogWrite(EnA,800);
+    analogWrite(EnB,800);
+    shiftOut(ab,clk,LSBFIRST,data);
+    delay(1500);
+    float acelx=myIMU.ax;
+    float acely=myIMU.ay;
+    double acel=sqrt(pow(acelx,2)+pow(acely,2));
+    if (acel>0.1){
+      retrocede=false;
+      girader=true;
+      inicio=currentTime;}
+    else if (currentTime-inicio>intervaloDirecto){
+      diagnostico=false;
+      buenestado=false;
+      retrocede=false;
+      data=stops;
+      shiftOut(ab,clk,LSBFIRST,data);
+      }
+    }
+  if (girader==true){
+    data=forward;
+    analogWrite(EnA,0);
+    analogWrite(EnB,800);
+    shiftOut(ab,clk,LSBFIRST,data);
+    delay(1500);
+    float acelx=myIMU.ax;
+    float acely=myIMU.ay;
+    double acel=sqrt(pow(acelx,2)+pow(acely,2));
+    if (acel>0.1){
+      girader=false;
+      giraizq=true;
+      inicio=currentTime;}
+    else if (currentTime-inicio>intervaloDirecto){
+      diagnostico=false;
+      buenestado=false;
+      girader=false;
+      data=stops;
+      shiftOut(ab,clk,LSBFIRST,data);
+      }
+    }
+  if (giraizq==true){
+    data=forward;
+    analogWrite(EnA,800);
+    analogWrite(EnB,0);
+    shiftOut(ab,clk,LSBFIRST,data);
+    delay(1500);
+    float acelx=myIMU.ax;
+    float acely=myIMU.ay;
+    double acel=sqrt(pow(acelx,2)+pow(acely,2));
+    if (acel>0.1){
+      diagnostico=false;
+      buenestado=true;
+      giraizq=false;
+      data=stops;
+      shiftOut(ab,clk,LSBFIRST,data);}
+    else if (currentTime-inicio>intervaloDirecto){
+      diagnostico=false;
+      buenestado=false;
+      giraizq=false;
+      data=stops;
+      shiftOut(ab,clk,LSBFIRST,data);
+      }
+    }
+  
+  }
+
+  
 //AGREGAR CODIGO DE LOS DISTINTOS COMANDOS
 /**
 recordar que puede usar myIMU para conseguir los valores de los sensores.
@@ -830,23 +1044,26 @@ etc. pueden ver donde se configuran los valores en updateAccelInfo()
 */
 
 String getSaved(){
-  String result = "Tiempo de giro: "+String(tiempogiro*pow(10,-3))+" segundos";
+  String result;
+  if (buenestado==true){result = "Carro en buen estado. Tiempo de giro registrado: "+String(tiempogiro*pow(10,-3))+" segundos"+", maxima aceleracion registrada: "+String(aceleracion)+"m/s**2";;}
+  else{result="El diagnostico no fue exitoso o no se ha realizado aun.";}
   return result;
 }
 String getSense(){
   int V = analogRead(LDRPin);            
   int ilum=map(V,0,1024,0,100);  //Se obtiene el valor del divisor de tension en un rango de 0 a 100
+  float temp=myIMU.temperature;
   String result = "Nivel de iluminacion: "+String(ilum);
   return result;
 }
 String getYaw(){
   Orient=myIMU.yaw;
-  String result = String(Orient);
+  String result = "Orientacion: "+String(Orient);
   return result;
 }
 String getPitch(){
   Pitch=myIMU.pitch;
-  String result = String(Pitch);
+  String result = "Grado de inclinacion: "+String(Pitch);
   return result;
 }
 String getRoll(){
@@ -855,11 +1072,14 @@ String getRoll(){
   if ((157<Roll)&&(Roll<180)){riesgo="No hay";}
   else if ((-157>Roll)&&(Roll>-179.9)){riesgo="No hay";}
   else{riesgo="Hay";}
-  String result ="Nivel de alabeo: "+String(Roll)+". Rango aceptado sin riesgo volteo: 157<=x<=180 y -179.9<=x<=-157 "+riesgo+" riesgo de volteo.";
+  String result ="Nivel de alabeo: "+String(Roll)+" Rango aceptado sin riesgo volteo: 157<=x<=180 y -179.9<=x<=-157 "+riesgo+" riesgo de volteo.";
   return result;
  }
 String infinite(){
-  String result = "";
+  movInf=true;
+  InfD=true;
+  inicio=millis();
+  String result = "Movimiento en forma de infinito.";
   return result;
 }
 String north(){
@@ -876,7 +1096,9 @@ String especial(){
   return result;
 }
 String diagnostic(){
-  String result = "";
+  diagnostico=true;luces=true;
+  inicio=millis();
+  String result = "Realizando diagnostico... Invoque funcion de Saved para conocer el resultado.";
   return result; 
   }
 //PUEDEN AGREGAR MÁS FUNCIONES PARA TENER UN CÓDIGO MÁS LIMPIO
