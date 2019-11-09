@@ -29,8 +29,8 @@
  * Este servidor no funciona correctamente en las redes del TEC,
  * se recomienda crear un hotspot con el celular
  */
-const char* ssid = "Tec5_EXT";
-const char* password = "ApartamentosTec";
+const char* ssid = "iPhone de Luis Pedro";
+const char* password = "contraCSR";
 // servidor con el puerto y variable con la maxima cantidad de clientes
 WiFiServer server(PORT);
 WiFiClient serverClients[MAX_SRV_CLIENTS];
@@ -38,9 +38,9 @@ WiFiClient serverClients[MAX_SRV_CLIENTS];
  * Intervalo de tiempo que se espera para comprobar que haya un nuevo mensaje
  */
 unsigned long previousMillis = 0, temp = 0;
-unsigned long previousMillisDir=0;
+unsigned long previousMillisDir=0; //manejo de intervalo de duración de las direccionales en alto o najo
 const long interval = 100;
-const long intervalDirectionals=1000;
+const long intervalDirectionals=1000;//intervalo de duración de las direccionales
 
 /**
  * Variables para manejar las luces y polaridad de motores con el registro de corrimiento.
@@ -99,10 +99,10 @@ boolean DirD_ON=false;
 boolean dirI = false;
 boolean DirI_ON=false;
 
-//Indica que el cronometro en el giro ha iniciado
+//Indica que el cronómetro en el giro ha iniciado
 bool turnR=false,turnL=false;
 unsigned long inicio=0,fin=0,tiempogiro=0; 
-unsigned long currentTurntime;
+unsigned long currentTurntime; //variable para el manejo de intervalos con millis
 
 //Orientacion en el giro
 float Orient;
@@ -119,6 +119,7 @@ int contEspecial=0;
 //Bandera para movimiento en infinito
 boolean movInf=false;
 boolean InfI=false, InfD=false, direct2=false;
+//Intervalos de duración de diferentes fases del recorrido
 const long intervaloGiroInf1=2300;
 const long intervaloGiroInf2=3500;
 const long intervaloDirInf1=1500;
@@ -129,6 +130,7 @@ int contadorInf=0;
 boolean movNorte=false;
 const long intervaloDirectoN=1500;
 const long intervaloGiroN=380;
+//banderas para indicar el tipo de movimiento que viene después
 boolean back=false;
 boolean gira=false;
 
@@ -156,10 +158,11 @@ byte backwards=B01011111;
 byte right=B01101111;
 byte left=B10011111;
 
+//banderas para indicar el estado de las luces delanteras y traseras
 bool f_light=false;
 bool b_light=false;
 
-void accelSetup(){
+void accelSetup(){ //configuración del MPU9250 utilizando la biblioteca correspondiente
   Wire.begin();
   while(!Serial){};
   delay(1000);
@@ -261,11 +264,11 @@ void setup() {
   pinMode(LDRPin,INPUT);
 
   // ip estática para el servidor
-  IPAddress ip(192,168,99,160);
-  IPAddress gateway(192,168,99,1);;//(192,168,99,1);
+  IPAddress ip(192,168,43,153);//192.168.43.150
+  IPAddress gateway(192,168,43,1);;//(192,168,99,1);
   IPAddress subnet(255,255,255,0);
 
-  WiFi.config(ip, gateway, subnet);
+  //WiFi.config(ip, gateway, subnet);
 
   // Modo para conectarse a la red
   WiFi.mode(WIFI_STA);
@@ -280,6 +283,7 @@ void setup() {
     while (1) delay(500);
   } else {
     Serial.println("\nIt´s connected");
+    Serial.println(WiFi.localIP());
   }
   server.begin();
   server.setNoDelay(true);
@@ -299,27 +303,27 @@ void loop() {
   double acel=sqrt(pow(acelx,2)+pow(acely,2));
   if (acel>aceleracion){
     aceleracion=acel;}
-  if (diagnostico==true){setDiag();
+  if (diagnostico==true){setDiag(); //se llama a la función que ejecuta la función de diagnóstivo
     }
   if (dirI==true || dirD==true){setDireccionales();} //Se llama a la funcion que genera el parpadeo de las direccionales
-  if (turnR==true || turnL==true){setTurn();}
-  if (movEspecial==true){
-    if (contEspecial==4){
+  if (turnR==true || turnL==true){setTurn();} //se llama a la función que genera el círculo de giro
+  if (movEspecial==true){//Se llama a la función que genera el moviento especial (en cuadrado)
+    if (contEspecial==4){ //fin del movimiento 
       data=stops;
       shiftOut(ab,clk,LSBFIRST,data);
       movEspecial=false;
       direct=false;
       contEspecial=0;}
-    if (direct==true){setSpecial1();}
-    else if (direct==false && movEspecial==true){setSpecial2();}
+    if (direct==true){setSpecial1();}//movimiento hacia el frente
+    else if (direct==false && movEspecial==true){setSpecial2();}//giro
     }
-  if (movNorte==true){
-    if (gira==true){setNorte3();}
-    else if (direct==true){setNorte1();}
-    else if (back==true){setNorte2();}
+  if (movNorte==true){//busca el norte
+    if (gira==true){setNorte3();}//giro hacia la derecha
+    else if (direct==true){setNorte1();}//movimiento hacia el frente
+    else if (back==true){setNorte2();}//movimiento hacia atrás
     }
-  if (movInf==true){
-    if (contadorInf==4){
+  if (movInf==true){//moviento en forma de infinito
+    if (contadorInf==4){//fin de la secuencia de movimiento
       data=stops;
       shiftOut(ab,clk,LSBFIRST,data);
       movInf=false;
@@ -410,7 +414,8 @@ void procesar(String input, String * output){
     * Si el comando no recibe sobrecargas, chequea si es alguno de los comandos que no la necesitan
     * a output se le asigna lo que retornen las funciones llamadas, puesto que las mismas indican si hubo un error o no
     */
-    
+
+    //llamado de función de telemetría
     else if(comando == "saved"){
       *output = getSaved();       
     }
@@ -426,6 +431,7 @@ void procesar(String input, String * output){
     else if(comando == "sense"){
       *output = getSense();        
     }
+    //llamado de funciones de movimiento de patrón
     else if(comando == "Infinite"){
       *output = infinite();         
     }
@@ -447,7 +453,7 @@ void procesar(String input, String * output){
   }
 }
 
-String implementar(String llave, String valor){
+String implementar(String llave, String valor){//función que lee comandos de movimiento y los ejecuta
   String result="ok;";
   Serial.print("Comparing llave: ");
   Serial.println(llave);
@@ -457,7 +463,7 @@ String implementar(String llave, String valor){
     int valorEntero= valor.toInt();
     if (valorEntero == 0){
       if (f_light==true){
-        data=stops^B00001111;}
+        data=stops^B00001111;} //lucen del frente permanencen encedidas
       else{data=stops^B00001100;}
       b_light=true;
       turnR=false;turnL=false;
@@ -466,6 +472,7 @@ String implementar(String llave, String valor){
       result="Motor frenado";
     }
     else if (valorEntero>=500 && valorEntero<=1023){
+      //manejo de luces en el movimiento hacia el frente
       if (f_light==true && b_light==false){
         data=forward^B00000011;}
       else if (f_light==false && b_light==true){
@@ -473,19 +480,21 @@ String implementar(String llave, String valor){
       else if (f_light==true && b_light==true){
         data=forward^B00001111;}
       else{data=forward;}
+      //velocidad de motores
       analogWrite(EnA,valorEntero);
       analogWrite(EnB,valorEntero);
       shiftOut(ab,clk,LSBFIRST,data); //Control del shift register para indicar que ambos motores se muevan hacia el frente: byte forward=B10101111
       result="Motor a hacia adelante";
     }
     else if (valorEntero<=-500 && valorEntero>=-1023 ){
+      //manejo de luces en el movimiento hacia atrás
       if (f_light==true && b_light==false){
         data=backwards^B00000011;}
       else if (f_light==false && b_light==true){
         data=backwards^B00001100;}
       else if (f_light==true && b_light==true){
         data=backwards^B00001111;}
-      else{data=backwards;}
+      else{data=backwards;}//movimiento hacia atrás
       analogWrite(EnA,abs(valorEntero));
       analogWrite(EnB,abs(valorEntero));
       shiftOut(ab,clk,LSBFIRST,data); //Control del shift register para indicar que ambos motores se muevan hacia el atrás: byte backwards=B01010000
@@ -500,6 +509,7 @@ String implementar(String llave, String valor){
   else if(llave == "dir"){
     switch (valor.toInt()){
       case 1:
+      //manejo de luces en el giro hacia la derecha 
         if (f_light==true && b_light==false){
           data=right^B00000011;}
         else if (f_light==false && b_light==true){
@@ -508,13 +518,14 @@ String implementar(String llave, String valor){
           data=right^B00001111;}
         else{data=right;}
         
-        analogWrite(EnB,600);
-        analogWrite(EnA,0);
+        analogWrite(EnB,600);//El motor izquiero gira
+        analogWrite(EnA,0);//el derecho no
         shiftOut(ab,clk,LSBFIRST,data);
         result="Girando derecha;";
         
         break;
       case -1:
+      //manejo de luces en el giro hacia la izquierda
         if (f_light==true && b_light==false){
           data=left^B00000011;}
         else if (f_light==false && b_light==true){
@@ -522,13 +533,14 @@ String implementar(String llave, String valor){
         else if (f_light==true && b_light==true){
           data=left^B00001111;}
         else{data=left;}
-        analogWrite(EnA,600);
-        analogWrite(EnB,0);
+        analogWrite(EnA,600);//se mueve el motor derecho
+        analogWrite(EnB,0);//el izquierdo no
         shiftOut(ab,clk,LSBFIRST,data);
         result="Girando izquierda;";
         break;
 
       default:
+      //manejo de luces en la dirección hacia el frente
         if (f_light==true && b_light==false){
           data=forward^B00000011;}
         else if (f_light==false && b_light==true){
@@ -536,7 +548,7 @@ String implementar(String llave, String valor){
         else if (f_light==true && b_light==true){
           data=forward^B00001111;}
         else{data=forward;}
-        analogWrite(EnB,800);
+        analogWrite(EnB,800);//ambos motores se mueven hacia el frente a la misma intensidad
         analogWrite(EnA,800);
         shiftOut(ab,clk,LSBFIRST,data);
         result="Curso directo";
@@ -548,39 +560,39 @@ String implementar(String llave, String valor){
     Serial.print("Valor luz: ");
     Serial.println(valor);
     
-    //utilizar operadores lógicos de bit a bit (bitwise operators)
+    
     switch (llave[1]){
       case 'f':
         Serial.println("Luces frontales");
         if (valor == "1"){
-          if (f_light==false){
+          if (f_light==false){//control de las luces frontales analizando el valor de las banderas correspondientes
             f_light=true;
-            data=data^B00000011;
+            data=data^B00000011;//se invierten el valor de las luces en caso de ques estén apagadas
             shiftOut(ab,clk,LSBFIRST,data);}
           else{
-            shiftOut(ab,clk,LSBFIRST,data);}
+            shiftOut(ab,clk,LSBFIRST,data);}//si las luces estaban encendidas, permanecen igual
           result="Luces frontales encendidas;";
         }
         else if (valor == "0"){
           if (f_light==true){
             f_light=false;
-            data=data^B00000011;
+            data=data^B00000011;//si las luces estaban encendidas, se invierten
             shiftOut(ab,clk,LSBFIRST,data);}
           else{
-            shiftOut(ab,clk,LSBFIRST,data);}
+            shiftOut(ab,clk,LSBFIRST,data);}//si las luces estaban apagadas, permanecen igual
           result = "Luces frontales apagadas;";
         }
-        //# AGREGAR CÓDIGO PARA ENCENDER LUCES FRONTALES
+       
         break;
       case 'b':
         Serial.println("Luces traseras");
         //# AGREGAR CÓDIGO PARA ENCENDER O APAGAR LUCES TRASERAS
         if (valor == "1"){
           if (b_light==false){
-            b_light=true;
-            if (dirI==false){DirI_ON=true;}
+            b_light=true;//manejo de bandera de estado de luces traseras
+            if (dirI==false){DirI_ON=true;}//manejo de banderas de luces direccionales
             if (dirD==false){DirD_ON=true;}
-            data=data^B00001100;
+            data=data^B00001100;//si las luces estaban apagadas, se invierten
             shiftOut(ab,clk,LSBFIRST,data);}
           else{
             shiftOut(ab,clk,LSBFIRST,data);}
@@ -588,20 +600,17 @@ String implementar(String llave, String valor){
         }
         else if (valor == "0"){
           if (b_light==true){
-            b_light=false;
-            if (dirI==false){DirI_ON=false;}
+            b_light=false;//manejo de bandera de estado de luces traseras
+            if (dirI==false){DirI_ON=false;}//manejo de banderas de luces direccionales
             if (dirD==false){DirD_ON=false;}
-            data=data^B00001100;
+            data=data^B00001100; //si las luces estaban encendidas, se invierten
             shiftOut(ab,clk,LSBFIRST,data);}
           else{
-            shiftOut(ab,clk,LSBFIRST,data);}
+            shiftOut(ab,clk,LSBFIRST,data);}//si ya estaban encendidas, quedan igual
           result = "Luces traseras apagadas;";
         }
         break;
-      /**
-       * # AGREGAR CASOS CON EL FORMATO l[caracter]:valor;
-       * SI SE DESEAN manejar otras salidas del registro de corrimiento
-       */
+     
       case 'l':
         Serial.println("Direccionales para la izquierda");
         //# AGREGAR CÓDIGO PARA ENCENDER O APAGAR DIRECCIONAL IZQUIERDA
@@ -612,17 +621,17 @@ String implementar(String llave, String valor){
         }
         else if (valor == "0"){
           dirI = false;
-          if (b_light==true){
-            if (DirI_ON==false){
+          if (b_light==true){//si las luces traseras estaban encendidas
+            if (DirI_ON==false){// si en ese momento la direccional izquierda estaba apagada
               DirI_ON=true;
-              data=data^B00000100;
+              data=data^B00000100;//entonces se invierte el valor de la luz
               shiftOut(ab,clk,LSBFIRST,data);}
             }
           else{
-            if (b_light==false){
-              if (DirI_ON==true){
+            if (b_light==false){//si las luces traseras estaban apagadas
+              if (DirI_ON==true){// si en ese momento la direccional izquierda estaba encendida
                 DirI_ON=false;
-                data=data^B00000100;
+                data=data^B00000100;//entonces se invierte el valor de la luz
                 shiftOut(ab,clk,LSBFIRST,data);
                 }}}
                 result = "Se han desactivado las direccionales izquierdas.";}
@@ -638,18 +647,18 @@ String implementar(String llave, String valor){
         }
         else if (valor == "0"){
           dirD = false;
-          if (b_light==true){
-            if (DirD_ON==false){
+          if (b_light==true){//si las luces traseras estaban apagadas
+            if (DirD_ON==false){//si la direccional derecha estaban apagada
               DirD_ON=true;
-              data=data^B00001000;
+              data=data^B00001000;//se invierte el valor de la luz
               shiftOut(ab,clk,LSBFIRST,data);}
             else{shiftOut(ab,clk,LSBFIRST,data);}
             }
           else{
-            if (b_light==false){
-              if (DirD_ON==true){
+            if (b_light==false){//si las luces traseras estaban apagadas
+              if (DirD_ON==true){//si las luz trasera derecha está encendida
                 DirD_ON=false;
-                data=data^B00001000;
+                data=data^B00001000;//se invierte el valor de la luz
                 shiftOut(ab,clk,LSBFIRST,data);
                 }
               else{shiftOut(ab,clk,LSBFIRST,data);}
@@ -670,18 +679,18 @@ String implementar(String llave, String valor){
     switch (valor.toInt()){
       case 1:
       { turnL=false;
-        turnR=true;
-        Orient=myIMU.yaw;
-        inicio=millis();
+        turnR=true;//bandera para indicar el giro para la derecha
+        Orient=myIMU.yaw;//se guarda la orientación inicial
+        inicio=millis();//se registra el tiempo inicial
         result="Circulo a la derecha. Orientacion: "+String(Orient);
         break;
       }
       case -1:
       {
-        turnL=true;
+        turnL=true;//bandera para indicar el giro para la izquierda
         turnR=false;
-        Orient=myIMU.yaw;
-        inicio=millis();
+        Orient=myIMU.yaw;//se guarda la orientación inicial
+        inicio=millis();//se registra el tiempo inicial
         result="Circulo a la derecha. Orientacion: "+String(Orient);
         result = "Circulo a la izquierda;";
         break;
@@ -707,37 +716,39 @@ String implementar(String llave, String valor){
 
 
 void setTurn(){
-  unsigned long currentTurntime=millis();
-  currentOrient=myIMU.yaw;
+  unsigned long currentTurntime=millis();//tiempo actual
+  currentOrient=myIMU.yaw;//orientación actual
   if (turnR==true){
     data=right;
-    analogWrite(EnB,800);
+    analogWrite(EnB,800);//giro a la derecha
     analogWrite(EnA,0);
     shiftOut(ab,clk,LSBFIRST,data);
-    if ((currentOrient>(Orient+3))&&(currentOrient<(Orient+10))){
+    if ((currentOrient>(Orient+3))&&(currentOrient<(Orient+10))){//cuando se llega a un valor de orientación dentro del rango cercano a la orientación inicial
       fin=currentTurntime;
       turnR=false;
       data=stops;
-      shiftOut(ab,clk,LSBFIRST,data);
-      tiempogiro=fin-inicio;
+      shiftOut(ab,clk,LSBFIRST,data);//carro frena
+      tiempogiro=fin-inicio;//se guarda el tiempo de giro
     }}
    if (turnL==true){
     data=left;
     analogWrite(EnB,0);
-    analogWrite(EnA,800);
+    analogWrite(EnA,800);//giro a la izquierda
     shiftOut(ab,clk,LSBFIRST,data);
-    if ((currentOrient<(Orient-3))&&(currentOrient>(Orient-10))){
+    if ((currentOrient<(Orient-3))&&(currentOrient>(Orient-10))){//cuando se llega a un valor de orientación dentro del rango cercano a la orientación inicial
       fin=currentTurntime;
       turnL=false;
       data=stops;
-      shiftOut(ab,clk,LSBFIRST,data);
-      tiempogiro=fin-inicio;
+      shiftOut(ab,clk,LSBFIRST,data);//carro frena
+      tiempogiro=fin-inicio;//se guarda el tiempo de giro
     }
   }
   
   }
 //-------------------------------------------------------------------------------------------------------------------------------------------------------
-void setDireccionales(){
+void setDireccionales(){//función que controla las direccionales
+  //dependiendo de la bandera que se active, se invierte el valor de las luces traseras 
+  //izquierda o derecha cada cierto tiempo
   
   //AGREGAR CODIGO QUE ENCIENDE Y APAGA LUCES TRASERAS DEPENDIENDO DEL VALOR DE LAS GLOBALES QUE LES CORRESPONDEN
   if (dirI==true){
@@ -757,7 +768,7 @@ void setDireccionales(){
         data=data^B00001000; //Se invierte únicamente el bit que maneja la luz trasera derecha.
         shiftOut(ab,clk,LSBFIRST,data);
     }}}
-void setSpecial1(){
+void setSpecial1(){//movimiento hacia el frente durante un lapso en la rutina del movimiento especial
   unsigned long currentTime=millis();
   if (currentTime-inicio<intervaloDirecto){
     data=forward;
@@ -773,7 +784,7 @@ void setSpecial1(){
     delay(100);
     }
   }
-void setSpecial2(){
+void setSpecial2(){//movimiento a la derecha durante un cierto lapso
   unsigned long currentTime=millis();
   if (currentTime-inicio<intervaloGiro){
     data=right;
@@ -787,14 +798,14 @@ void setSpecial2(){
     data=stops;
     shiftOut(ab,clk,LSBFIRST,data);
     delay(100);
-    contEspecial++;
+    contEspecial++;//siguiente movimiento de la secuencia
     }
   }
 
-void setNorte1(){
+void setNorte1(){//movimiento hacia el frente en la secuencia del movimiento que busca el norte
   Orient=myIMU.yaw;
   unsigned long currentTime=millis();
-  if ((0<Orient)&& (Orient<35)){
+  if ((0<Orient)&& (Orient<35)){//condición de parada: cuando se llega a un valor muy cercano al Norte (aproximadamente 20 grados del MPU9250)
     direct=false;
     back=false;
     gira=false;
@@ -802,7 +813,7 @@ void setNorte1(){
     data=stops;
     shiftOut(ab,clk,LSBFIRST,data);}
   else if (currentTime-inicio<intervaloDirectoN){
-    data=forward;
+    data=forward;//movimiento hacia el frente mientras se esté en el intervalo de tiempo 
     analogWrite(EnA,800);
     analogWrite(EnB,800);
     shiftOut(ab,clk,LSBFIRST,data);
@@ -811,10 +822,10 @@ void setNorte1(){
     gira=true;
     inicio=currentTime;}
   }
-void setNorte2(){
+void setNorte2(){//movimiento hacia atrás en la secuencia del movimiento que busca el norte
   Orient=myIMU.yaw;
   unsigned long currentTime=millis();
-  if ((0<Orient)&& (Orient<35)){
+  if ((0<Orient)&& (Orient<35)){//condición de parada: cuando se llega a un valor muy cercano al Norte (aproximadamente 20 grados del MPU9250)
     direct=false;
     back=false;
     gira=false;
@@ -822,7 +833,7 @@ void setNorte2(){
     data=stops;
     shiftOut(ab,clk,LSBFIRST,data);}
   else if (currentTime-inicio<intervaloDirectoN){
-    data=backwards;
+    data=backwards;//movimiento hacia atrás mientras se esté en el intervalo de tiempo
     analogWrite(EnA,650);
     analogWrite(EnB,650);
     shiftOut(ab,clk,LSBFIRST,data);
@@ -854,8 +865,9 @@ void setNorte3(){
     inicio=currentTime;}
   }
 
-void setInf(){
+void setInf(){//función que ejecuta la secuencia de movimiento que generan un recorrido en forma de infinito
   unsigned long currentTime=millis();
+  //el funcionamiento de este método se basa en la dinámica de ejecutar ciertas configuraciones de movimiento de los motores durante lapsos específicos de manera que la secuencia requerida se logre
   if (InfD==true){
     if (currentTime-inicio<intervaloGiroInf1){
       data=forward;
@@ -925,13 +937,13 @@ void setInf(){
     }
   }
 
-void setDiag(){
+void setDiag(){//función de diagnótisco 
   unsigned long currentTime=millis();  
  
   Roll=myIMU.roll;
   Orient=myIMU.yaw;
   Pitch=myIMU.pitch;
-  if (luces==true){
+  if (luces==true){//enciende y apaga las luces 
     data=B00000000;
     shiftOut(ab,clk,LSBFIRST,data);
     delay(1500);
@@ -939,12 +951,13 @@ void setDiag(){
     shiftOut(ab,clk,LSBFIRST,data);
     delay(1500);
     luces=false;
-    if (Orient==3.0 && Roll==0.0 && Pitch==0.0){
+    if (Orient==3.0 && Roll==0.0 && Pitch==0.0){//obtiene valore sde roll, pitch y yaw para determinar si marcan valores diferentes de los que arroja por default cuando está apagado
       diagnostico=false;
       buenestado=false;
       } 
     else{avanza=true;}
     }
+   //se activan los motores en diferentes direcciones y se verifica si hay alguna aceleración
   if (avanza==true){
     data=forward;
     analogWrite(EnA,800);
@@ -1051,7 +1064,7 @@ String getSaved(){
 }
 String getSense(){
   int V = analogRead(LDRPin);            
-  int ilum=map(V,0,1024,0,100);  //Se obtiene el valor del divisor de tension en un rango de 0 a 100
+  int ilum=map(V,0,1023,0,100);  //Se obtiene el valor del divisor de tension en un rango de 0 a 100
   float temp=myIMU.temperature;
   String result = "Nivel de iluminacion: "+String(ilum);
   return result;
