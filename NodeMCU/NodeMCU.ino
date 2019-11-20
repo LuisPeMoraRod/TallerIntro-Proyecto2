@@ -1065,10 +1065,15 @@ String getSaved(){
 String getSense(){
   int V = analogRead(LDRPin);            
   int ilum=map(V,0,1023,0,100);  //Se obtiene el valor del divisor de tension en un rango de 0 a 100
-  float temp=myIMU.temperature;
-  String result = "Nivel de iluminacion: "+String(ilum);
+  String temp=getTemp();
+  String result = "Nivel de iluminacion: "+String(ilum)+"\t Nivel de temperatura: "+temp" Cº";
   return result;
 }
+String getTemp(){
+  myIMU.tempCount=myIMU.readTempData(); //lectura de valores ADC
+  myIMU.temperature=((float) myIMU.tempCount)/333.87 + 21.0; //temperatura en grados C
+  return String(myIMU.temperature) 
+  }
 String getYaw(){
   Orient=myIMU.yaw;
   String result = "Orientacion: "+String(Orient);
