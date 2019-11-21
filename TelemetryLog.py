@@ -58,7 +58,6 @@ RevCarScrolledTxt.place(x=400,y=50)
 myCar = NodeMCU()
 myCar.start()
 
-
 def get_log():
     """
     Hilo que actualiza los Text cada vez que se agrega un nuevo mensaje al log de myCar
